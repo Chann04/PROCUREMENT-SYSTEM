@@ -1,0 +1,81 @@
+// School Department Procurement & Inventory System
+// Prisma Schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// User model with roles: Faculty, DeptHead, Admin
+model User {
+  id        Int       @id @default(autoincrement())
+  name      String
+  email     String    @unique
+  password  String
+  role      String    @default("Faculty") // Faculty, DeptHead, Admin
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  requests  Request[]
+}
+
+// Category for procurement items (e.g., IT Equipment, Stationery)
+model Category {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  createdAt DateTime  @default(now())
+  requests  Request[]
+}
+
+// Vendor information
+model Vendor {
+  id            Int       @id @default(autoincrement())
+  name          String
+  contactPerson String?
+  contactNumber String?
+  email         String?
+  address       String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  requests      Request[]
+}
+
+// Request model with workflow status
+model Request {
+  id              Int       @id @default(autoincrement())
+  requesterId     Int
+  categoryId      Int
+  vendorId        Int?
+  itemName        String
+  description     String?
+  quantity        Int
+  unitPrice       Float
+  totalPrice      Float
+  status          String    @default("Draft") // Draft, Pending, Approved, Rejected, Ordered, Received, Completed
+  rejectionReason String?
+  approvedBy      Int?
+  approvedAt      DateTime?
+  orderedAt       DateTime?
+  receivedAt      DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  requester User     @relation(fields: [requesterId], references: [id])
+  category  Category @relation(fields: [categoryId], references: [id])
+  vendor    Vendor?  @relation(fields: [vendorId], references: [id])
+}
+
+// Budget tracking by academic year
+model Budget {
+  id              Int      @id @default(autoincrement())
+  academicYear    String   @unique // e.g., "2025-2026"
+  totalAmount     Float
+  spentAmount     Float    @default(0)
+  remainingAmount Float
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
