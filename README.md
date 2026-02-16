@@ -1,6 +1,6 @@
 # School Department Procurement & Inventory System
 
-A full-stack web application for managing procurement requests in a school department setting.
+A full-stack web application for managing procurement requests in a school department setting, powered by **Supabase**.
 
 ## Features
 
@@ -24,174 +24,181 @@ A full-stack web application for managing procurement requests in a school depar
 - Request history for all users
 - Vendor and category management
 - Modern, responsive UI with Tailwind CSS
+- **Supabase Authentication** with auto profile creation
+- **Row-Level Security (RLS)** for data protection
 
 ## Tech Stack
 
 ### Frontend
-- React 18
+- React 18 + TypeScript
 - Tailwind CSS
 - React Router DOM
-- Axios
+- Supabase JS Client
 - Lucide React (icons)
 - Vite (build tool)
 
-### Backend
-- Node.js / Express
-- Prisma ORM
-- SQLite Database
-- JWT Authentication
-- bcryptjs (password hashing)
+### Backend (Supabase)
+- PostgreSQL Database
+- Supabase Auth
+- Row-Level Security (RLS)
+- Database Triggers
 
 ## Getting Started
 
 ### Prerequisites
 - Node.js 18+ installed
-- npm or yarn package manager
+- A Supabase account (free tier works)
 
-### Installation
+### Supabase Setup
 
-1. **Clone the repository**
-   ```bash
-   cd "PROCUREMENT SYSTEM"
-   ```
+1. **Create a Supabase Project**
+   - Go to [supabase.com](https://supabase.com) and create a new project
+   - Note your project URL and anon key from Settings > API
 
-2. **Setup Backend**
-   ```bash
-   cd backend
-   npm install
-   npx prisma migrate dev
-   npm run seed
-   ```
+2. **Run the Database Migration**
+   - Go to the SQL Editor in your Supabase dashboard
+   - Copy and paste the contents of `supabase/migrations/001_initial_schema.sql`
+   - Run the migration
 
-3. **Setup Frontend**
-   ```bash
-   cd frontend
-   npm install
-   ```
+3. **Configure Authentication**
+   - In Supabase Dashboard > Authentication > Settings
+   - Enable Email provider
+   - Optionally disable email confirmation for testing
 
-### Running the Application
+### Frontend Setup
 
-1. **Start the Backend Server**
-   ```bash
-   cd backend
-   npm run dev
-   ```
-   Server runs on http://localhost:5000
-
-2. **Start the Frontend Dev Server**
+1. **Install Dependencies**
    ```bash
    cd frontend
+   npm install
+   ```
+
+2. **Configure Environment**
+   ```bash
+   cp .env.example .env
+   ```
+   Edit `.env` with your Supabase credentials:
+   ```
+   VITE_SUPABASE_URL=https://your-project-id.supabase.co
+   VITE_SUPABASE_ANON_KEY=your-anon-key-here
+   ```
+
+3. **Start Development Server**
+   ```bash
    npm run dev
    ```
    Application runs on http://localhost:3000
 
-## Demo Accounts
+## Database Schema
 
-| Role | Email | Password |
-|------|-------|----------|
-| Admin | admin@school.edu | password123 |
-| Dept. Head | depthead@school.edu | password123 |
-| Faculty | faculty1@school.edu | password123 |
-| Faculty | faculty2@school.edu | password123 |
+### Tables
 
-## API Endpoints
+- **profiles**: User profiles linked to auth.users
+  - id (UUID, references auth.users)
+  - full_name, email, role, department
 
-### Authentication
-- `POST /api/auth/register` - Register new user
-- `POST /api/auth/login` - Login
-- `GET /api/auth/me` - Get current user
+- **categories**: Procurement categories
+  - id, name, description
 
-### Users (Admin only)
-- `GET /api/users` - List all users
-- `GET /api/users/:id` - Get user by ID
-- `PUT /api/users/:id` - Update user
-- `DELETE /api/users/:id` - Delete user
+- **vendors**: Supplier information
+  - id, name, contact_person, contact_number, email, address
 
-### Categories
-- `GET /api/categories` - List all categories
-- `POST /api/categories` - Create category (Admin)
-- `PUT /api/categories/:id` - Update category (Admin)
-- `DELETE /api/categories/:id` - Delete category (Admin)
+- **budgets**: Annual budget tracking
+  - id, academic_year, total_amount, spent_amount, remaining_amount (computed)
 
-### Vendors
-- `GET /api/vendors` - List all vendors
-- `POST /api/vendors` - Create vendor (Admin)
-- `PUT /api/vendors/:id` - Update vendor (Admin)
-- `DELETE /api/vendors/:id` - Delete vendor (Admin)
+- **requests**: Procurement requests
+  - id, requester_id, category_id, vendor_id
+  - item_name, description, quantity, unit_price, total_price (computed)
+  - status, rejection_reason, timestamps
 
-### Requests
-- `GET /api/requests` - List requests (filtered by role)
-- `GET /api/requests/pending` - Get pending approvals
-- `POST /api/requests` - Create request
-- `PUT /api/requests/:id` - Update request (Draft only)
-- `POST /api/requests/:id/submit` - Submit for approval
-- `POST /api/requests/:id/approve` - Approve request
-- `POST /api/requests/:id/reject` - Reject request
-- `POST /api/requests/:id/order` - Mark as ordered
-- `POST /api/requests/:id/receive` - Mark as received
-- `POST /api/requests/:id/complete` - Mark as completed
+### Row-Level Security Policies
 
-### Budget
-- `GET /api/budget` - List all budgets
-- `GET /api/budget/current` - Get current academic year budget
-- `POST /api/budget` - Create/update budget (Admin)
-- `GET /api/budget/:year/report` - Get budget report
+- **Faculty**: Can only view and edit their own requests
+- **DeptHead**: Can view all requests and update statuses
+- **Admin**: Full access to all tables
 
-### Dashboard
-- `GET /api/dashboard/stats` - Get dashboard statistics
-- `GET /api/dashboard/my-requests` - Get user's request history
+### Database Triggers
+
+1. **on_auth_user_created**: Automatically creates a profile when a user signs up
+2. **update_budget_on_order**: Updates budget spent amount when a request is marked as ordered
+3. **update_updated_at**: Automatically updates timestamps
 
 ## Project Structure
 
 ```
 PROCUREMENT SYSTEM/
-├── backend/
-│   ├── prisma/
-│   │   ├── schema.prisma    # Database schema
-│   │   ├── seed.js          # Seed data
-│   │   └── dev.db           # SQLite database
-│   ├── src/
-│   │   ├── middleware/
-│   │   │   └── auth.js      # JWT authentication
-│   │   ├── routes/
-│   │   │   ├── auth.js
-│   │   │   ├── users.js
-│   │   │   ├── categories.js
-│   │   │   ├── vendors.js
-│   │   │   ├── requests.js
-│   │   │   ├── budget.js
-│   │   │   └── dashboard.js
-│   │   └── index.js         # Express server
-│   └── package.json
+├── supabase/
+│   └── migrations/
+│       └── 001_initial_schema.sql   # Database schema + RLS + Triggers
 ├── frontend/
 │   ├── src/
-│   │   ├── api/
-│   │   │   └── index.js     # API client
+│   │   ├── lib/
+│   │   │   ├── supabaseClient.ts    # Supabase client
+│   │   │   └── supabaseApi.ts       # API functions
+│   │   ├── types/
+│   │   │   └── database.ts          # TypeScript types
 │   │   ├── components/
-│   │   │   ├── Layout.jsx
-│   │   │   ├── Sidebar.jsx
-│   │   │   └── StatusBadge.jsx
+│   │   │   ├── Layout.tsx
+│   │   │   ├── Sidebar.tsx
+│   │   │   └── StatusBadge.tsx
 │   │   ├── context/
-│   │   │   └── AuthContext.jsx
+│   │   │   └── AuthContext.tsx      # Auth context with Supabase
 │   │   ├── pages/
-│   │   │   ├── Login.jsx
-│   │   │   ├── Dashboard.jsx
-│   │   │   ├── Requests.jsx
-│   │   │   ├── NewRequest.jsx
-│   │   │   ├── RequestDetail.jsx
-│   │   │   ├── History.jsx
-│   │   │   ├── Approvals.jsx
-│   │   │   ├── Users.jsx
-│   │   │   ├── Vendors.jsx
-│   │   │   ├── Categories.jsx
-│   │   │   └── Budget.jsx
-│   │   ├── App.jsx
-│   │   ├── main.jsx
+│   │   │   ├── Login.tsx            # Auth with signup/signin
+│   │   │   ├── Dashboard.tsx
+│   │   │   ├── Requests.tsx
+│   │   │   ├── NewRequest.tsx
+│   │   │   ├── RequestDetail.tsx
+│   │   │   ├── History.tsx
+│   │   │   ├── Approvals.tsx
+│   │   │   ├── Users.tsx
+│   │   │   ├── Vendors.tsx
+│   │   │   ├── Categories.tsx
+│   │   │   └── Budget.tsx
+│   │   ├── App.tsx
+│   │   ├── main.tsx
 │   │   └── index.css
+│   ├── .env.example
 │   ├── index.html
 │   └── package.json
+├── backend/                          # Legacy Express backend (optional)
 └── README.md
 ```
+
+## API Reference
+
+All API calls are made through the Supabase client. See `src/lib/supabaseApi.ts` for the complete API implementation.
+
+### Authentication
+```typescript
+authAPI.signUp(email, password, fullName, role)
+authAPI.signIn(email, password)
+authAPI.signOut()
+authAPI.getProfile()
+```
+
+### Requests
+```typescript
+requestsAPI.getAll(filters?)
+requestsAPI.getMyRequests()
+requestsAPI.getPending()
+requestsAPI.create(data)
+requestsAPI.approve(id)
+requestsAPI.reject(id, reason)
+requestsAPI.markOrdered(id)
+// ... etc
+```
+
+## Migration from Local Backend
+
+If you were using the local Express/SQLite backend, here's what changed:
+
+1. **Authentication**: Now uses Supabase Auth instead of JWT
+2. **Database**: PostgreSQL on Supabase instead of SQLite
+3. **API Calls**: Direct Supabase queries instead of REST endpoints
+4. **Real-time**: Supabase supports real-time subscriptions (can be added)
+
+The local backend in `/backend` folder is preserved but no longer needed.
 
 ## License
 

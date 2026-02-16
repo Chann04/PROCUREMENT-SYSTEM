@@ -1,22 +1,35 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { dashboardAPI } from '../api';
+import { dashboardAPI } from '../lib/supabaseApi';
 import StatusBadge from '../components/StatusBadge';
 import {
   Wallet,
   Clock,
   TrendingUp,
   FileText,
-  CheckCircle,
   ArrowRight,
   Loader2,
   AlertTriangle
 } from 'lucide-react';
 
+interface DashboardStats {
+  budget: {
+    total: number;
+    spent: number;
+    remaining: number;
+    academicYear: string;
+  } | null;
+  pendingApprovals: number;
+  totalRequests: number;
+  monthlySpending: number;
+  requestsByStatus: Record<string, number>;
+  recentRequests: any[];
+}
+
 const Dashboard = () => {
-  const { user, canApprove } = useAuth();
-  const [stats, setStats] = useState(null);
+  const { profile, canApprove } = useAuth();
+  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -26,10 +39,10 @@ const Dashboard = () => {
 
   const fetchStats = async () => {
     try {
-      const response = await dashboardAPI.getStats();
-      setStats(response.data);
-    } catch (err) {
-      setError('Failed to load dashboard data');
+      const data = await dashboardAPI.getStats();
+      setStats(data);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load dashboard data');
       console.error(err);
     } finally {
       setLoading(false);
@@ -56,7 +69,7 @@ const Dashboard = () => {
     ? ((stats.budget.spent / stats.budget.total) * 100).toFixed(1)
     : 0;
 
-  const isBudgetLow = budgetPercentage > 80;
+  const isBudgetLow = Number(budgetPercentage) > 80;
 
   return (
     <div className="space-y-6">
@@ -64,7 +77,7 @@ const Dashboard = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
-          <p className="text-gray-500 mt-1">Welcome back, {user?.name}</p>
+          <p className="text-gray-500 mt-1">Welcome back, {profile?.full_name}</p>
         </div>
         <Link
           to="/requests/new"
@@ -102,7 +115,7 @@ const Dashboard = () => {
                 className={`h-2 rounded-full transition-all ${
                   isBudgetLow ? 'bg-orange-500' : 'bg-green-500'
                 }`}
-                style={{ width: `${Math.min(budgetPercentage, 100)}%` }}
+                style={{ width: `${Math.min(Number(budgetPercentage), 100)}%` }}
               />
             </div>
           </div>
@@ -139,7 +152,7 @@ const Dashboard = () => {
             ₱{stats?.monthlySpending?.toLocaleString() || 0}
           </p>
           <p className="mt-3 text-xs text-gray-400">
-            {stats?.approvedThisMonth || 0} requests approved
+            Current month spending
           </p>
         </div>
 
@@ -192,15 +205,15 @@ const Dashboard = () => {
           </div>
           <div className="space-y-3">
             {stats?.recentRequests?.length > 0 ? (
-              stats.recentRequests.map((request) => (
+              stats.recentRequests.map((request: any) => (
                 <div 
                   key={request.id} 
                   className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                 >
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-800 truncate">{request.itemName}</p>
+                    <p className="font-medium text-gray-800 truncate">{request.item_name}</p>
                     <p className="text-sm text-gray-500">
-                      {request.category?.name} • ₱{request.totalPrice.toLocaleString()}
+                      {request.category?.name} • ₱{request.total_price?.toLocaleString()}
                     </p>
                   </div>
                   <StatusBadge status={request.status} size="sm" showIcon={false} />

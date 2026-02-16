@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { requestsAPI, budgetAPI } from '../api';
+import { requestsAPI, budgetsAPI } from '../lib/supabaseApi';
 import StatusBadge from '../components/StatusBadge';
+import type { RequestWithRelations, Budget } from '../types/database';
 import {
   Loader2,
   CheckCircle,
@@ -12,13 +13,17 @@ import {
 } from 'lucide-react';
 
 const Approvals = () => {
-  const [requests, setRequests] = useState([]);
-  const [budget, setBudget] = useState(null);
+  const [requests, setRequests] = useState<RequestWithRelations[]>([]);
+  const [budget, setBudget] = useState<Budget | null>(null);
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [rejectModal, setRejectModal] = useState({ show: false, id: null, reason: '' });
+  const [rejectModal, setRejectModal] = useState<{ show: boolean; id: string | null; reason: string }>({ 
+    show: false, 
+    id: null, 
+    reason: '' 
+  });
 
   useEffect(() => {
     fetchData();
@@ -26,21 +31,21 @@ const Approvals = () => {
 
   const fetchData = async () => {
     try {
-      const [requestsRes, budgetRes] = await Promise.all([
+      const [requestsData, budgetData] = await Promise.all([
         requestsAPI.getPending(),
-        budgetAPI.getCurrent()
+        budgetsAPI.getCurrent()
       ]);
-      setRequests(requestsRes.data);
-      setBudget(budgetRes.data);
-    } catch (err) {
-      setError('Failed to load pending requests');
+      setRequests(requestsData);
+      setBudget(budgetData);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load pending requests');
       console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleApprove = async (id) => {
+  const handleApprove = async (id: string) => {
     setActionLoading(id);
     setError('');
     
@@ -48,18 +53,16 @@ const Approvals = () => {
       await requestsAPI.approve(id);
       setSuccess('Request approved successfully');
       fetchData();
-    } catch (err) {
-      if (err.response?.data?.budgetExceeded) {
-        setError(err.response.data.message);
-      } else {
-        setError(err.response?.data?.error || 'Failed to approve request');
-      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to approve request');
     } finally {
       setActionLoading(null);
     }
   };
 
   const handleReject = async () => {
+    if (!rejectModal.id) return;
+    
     setActionLoading(rejectModal.id);
     setError('');
     
@@ -68,15 +71,15 @@ const Approvals = () => {
       setSuccess('Request rejected');
       setRejectModal({ show: false, id: null, reason: '' });
       fetchData();
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to reject request');
+    } catch (err: any) {
+      setError(err.message || 'Failed to reject request');
     } finally {
       setActionLoading(null);
     }
   };
 
-  const wouldExceedBudget = (totalPrice) => {
-    return budget && totalPrice > budget.remainingAmount;
+  const wouldExceedBudget = (totalPrice: number) => {
+    return budget && totalPrice > budget.remaining_amount;
   };
 
   if (loading) {
@@ -97,7 +100,7 @@ const Approvals = () => {
         {budget && (
           <div className="text-right">
             <p className="text-sm text-gray-500">Available Budget</p>
-            <p className="text-xl font-bold text-indigo-600">₱{budget.remainingAmount.toLocaleString()}</p>
+            <p className="text-xl font-bold text-indigo-600">₱{budget.remaining_amount.toLocaleString()}</p>
           </div>
         )}
       </div>
@@ -129,7 +132,7 @@ const Approvals = () => {
             <div 
               key={request.id}
               className={`bg-white rounded-xl shadow-sm border p-6 ${
-                wouldExceedBudget(request.totalPrice) 
+                wouldExceedBudget(request.total_price) 
                   ? 'border-orange-200 bg-orange-50/30' 
                   : 'border-gray-100'
               }`}
@@ -137,9 +140,9 @@ const Approvals = () => {
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-lg font-semibold text-gray-800">{request.itemName}</h3>
+                    <h3 className="text-lg font-semibold text-gray-800">{request.item_name}</h3>
                     <StatusBadge status={request.status} size="sm" />
-                    {wouldExceedBudget(request.totalPrice) && (
+                    {wouldExceedBudget(request.total_price) && (
                       <span className="px-2 py-1 bg-orange-100 text-orange-700 text-xs font-medium rounded-full flex items-center gap-1">
                         <AlertTriangle className="w-3 h-3" />
                         Exceeds Budget
@@ -150,7 +153,7 @@ const Approvals = () => {
                   <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-4">
                     <div>
                       <p className="text-sm text-gray-500">Requester</p>
-                      <p className="font-medium text-gray-800">{request.requester?.name}</p>
+                      <p className="font-medium text-gray-800">{request.requester?.full_name}</p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-500">Category</p>
@@ -162,11 +165,11 @@ const Approvals = () => {
                     </div>
                     <div>
                       <p className="text-sm text-gray-500">Unit Price</p>
-                      <p className="font-medium text-gray-800">₱{request.unitPrice.toLocaleString()}</p>
+                      <p className="font-medium text-gray-800">₱{request.unit_price.toLocaleString()}</p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-500">Total</p>
-                      <p className="font-bold text-lg text-gray-800">₱{request.totalPrice.toLocaleString()}</p>
+                      <p className="font-bold text-lg text-gray-800">₱{request.total_price?.toLocaleString()}</p>
                     </div>
                   </div>
 
@@ -178,7 +181,7 @@ const Approvals = () => {
 
               <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
                 <span className="text-sm text-gray-500">
-                  Submitted {new Date(request.createdAt).toLocaleDateString()}
+                  Submitted {new Date(request.created_at).toLocaleDateString()}
                 </span>
                 <div className="flex items-center gap-2">
                   <Link
@@ -198,9 +201,9 @@ const Approvals = () => {
                   </button>
                   <button
                     onClick={() => handleApprove(request.id)}
-                    disabled={actionLoading === request.id || wouldExceedBudget(request.totalPrice)}
+                    disabled={actionLoading === request.id || wouldExceedBudget(request.total_price)}
                     className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    title={wouldExceedBudget(request.totalPrice) ? 'Budget exceeded' : ''}
+                    title={wouldExceedBudget(request.total_price) ? 'Budget exceeded' : ''}
                   >
                     {actionLoading === request.id ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -238,7 +241,7 @@ const Approvals = () => {
               </button>
               <button
                 onClick={handleReject}
-                disabled={actionLoading}
+                disabled={!!actionLoading}
                 className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium disabled:opacity-50"
               >
                 {actionLoading ? 'Rejecting...' : 'Reject Request'}

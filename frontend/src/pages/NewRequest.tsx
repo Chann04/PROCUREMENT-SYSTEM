@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { categoriesAPI, vendorsAPI, requestsAPI, budgetAPI } from '../api';
+import { categoriesAPI, vendorsAPI, requestsAPI, budgetsAPI } from '../lib/supabaseApi';
+import type { Category, Vendor, Budget, RequestStatus } from '../types/database';
 import { 
   Package, 
   FileText, 
@@ -17,19 +18,19 @@ import {
 const NewRequest = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [categories, setCategories] = useState([]);
-  const [vendors, setVendors] = useState([]);
-  const [budget, setBudget] = useState(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [budget, setBudget] = useState<Budget | null>(null);
   const [error, setError] = useState('');
-  const [budgetWarning, setBudgetWarning] = useState(null);
+  const [budgetWarning, setBudgetWarning] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
-    categoryId: '',
-    vendorId: '',
-    itemName: '',
+    category_id: '',
+    vendor_id: '',
+    item_name: '',
     description: '',
     quantity: 1,
-    unitPrice: ''
+    unit_price: ''
   });
 
   useEffect(() => {
@@ -38,31 +39,31 @@ const NewRequest = () => {
 
   const fetchData = async () => {
     try {
-      const [categoriesRes, vendorsRes, budgetRes] = await Promise.all([
+      const [categoriesData, vendorsData, budgetData] = await Promise.all([
         categoriesAPI.getAll(),
         vendorsAPI.getAll(),
-        budgetAPI.getCurrent()
+        budgetsAPI.getCurrent()
       ]);
-      setCategories(categoriesRes.data);
-      setVendors(vendorsRes.data);
-      setBudget(budgetRes.data);
-    } catch (err) {
-      setError('Failed to load form data');
+      setCategories(categoriesData);
+      setVendors(vendorsData);
+      setBudget(budgetData);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load form data');
       console.error(err);
     }
   };
 
-  const totalPrice = (formData.quantity || 0) * (parseFloat(formData.unitPrice) || 0);
+  const totalPrice = (formData.quantity || 0) * (parseFloat(formData.unit_price) || 0);
 
   useEffect(() => {
-    if (budget && totalPrice > budget.remainingAmount) {
-      setBudgetWarning(`This request (₱${totalPrice.toLocaleString()}) exceeds the remaining budget (₱${budget.remainingAmount.toLocaleString()})`);
+    if (budget && totalPrice > budget.remaining_amount) {
+      setBudgetWarning(`This request (₱${totalPrice.toLocaleString()}) exceeds the remaining budget (₱${budget.remaining_amount.toLocaleString()})`);
     } else {
       setBudgetWarning(null);
     }
   }, [totalPrice, budget]);
 
-  const handleChange = (e) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -70,33 +71,32 @@ const NewRequest = () => {
     }));
   };
 
-  const handleSubmit = async (status) => {
+  const handleSubmit = async (status: RequestStatus) => {
     setError('');
     setLoading(true);
 
     try {
-      if (!formData.categoryId || !formData.itemName || !formData.quantity || !formData.unitPrice) {
+      if (!formData.category_id || !formData.item_name || !formData.quantity || !formData.unit_price) {
         setError('Please fill in all required fields');
         setLoading(false);
         return;
       }
 
-      const response = await requestsAPI.create({
-        ...formData,
+      await requestsAPI.create({
+        category_id: formData.category_id || undefined,
+        vendor_id: formData.vendor_id || undefined,
+        item_name: formData.item_name,
+        description: formData.description || undefined,
+        quantity: parseInt(formData.quantity.toString()),
+        unit_price: parseFloat(formData.unit_price),
         status
       });
 
-      if (response.data) {
-        navigate('/requests', { 
-          state: { message: `Request ${status === 'Draft' ? 'saved as draft' : 'submitted'} successfully` }
-        });
-      }
-    } catch (err) {
-      if (err.response?.data?.budgetExceeded) {
-        setError(err.response.data.message);
-      } else {
-        setError(err.response?.data?.error || 'Failed to create request');
-      }
+      navigate('/requests', { 
+        state: { message: `Request ${status === 'Draft' ? 'saved as draft' : 'submitted'} successfully` }
+      });
+    } catch (err: any) {
+      setError(err.message || 'Failed to create request');
     } finally {
       setLoading(false);
     }
@@ -114,8 +114,8 @@ const NewRequest = () => {
         <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-indigo-600 font-medium">Available Budget ({budget.academicYear})</p>
-              <p className="text-2xl font-bold text-indigo-700">₱{budget.remainingAmount.toLocaleString()}</p>
+              <p className="text-sm text-indigo-600 font-medium">Available Budget ({budget.academic_year})</p>
+              <p className="text-2xl font-bold text-indigo-700">₱{budget.remaining_amount.toLocaleString()}</p>
             </div>
             <div className="text-right">
               <p className="text-sm text-indigo-600">Request Total</p>
@@ -148,8 +148,8 @@ const NewRequest = () => {
           </label>
           <input
             type="text"
-            name="itemName"
-            value={formData.itemName}
+            name="item_name"
+            value={formData.item_name}
             onChange={handleChange}
             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             placeholder="e.g., Laptop Computer, Printer Paper"
@@ -165,8 +165,8 @@ const NewRequest = () => {
               Category *
             </label>
             <select
-              name="categoryId"
-              value={formData.categoryId}
+              name="category_id"
+              value={formData.category_id}
               onChange={handleChange}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               required
@@ -184,8 +184,8 @@ const NewRequest = () => {
               Vendor (Optional)
             </label>
             <select
-              name="vendorId"
-              value={formData.vendorId}
+              name="vendor_id"
+              value={formData.vendor_id}
               onChange={handleChange}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             >
@@ -222,8 +222,8 @@ const NewRequest = () => {
             </label>
             <input
               type="number"
-              name="unitPrice"
-              value={formData.unitPrice}
+              name="unit_price"
+              value={formData.unit_price}
               onChange={handleChange}
               min="0"
               step="0.01"
@@ -279,7 +279,7 @@ const NewRequest = () => {
           <button
             type="button"
             onClick={() => handleSubmit('Pending')}
-            disabled={loading || budgetWarning}
+            disabled={loading || !!budgetWarning}
             className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium flex items-center gap-2 disabled:opacity-50"
           >
             {loading ? (

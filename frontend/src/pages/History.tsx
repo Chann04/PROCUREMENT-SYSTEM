@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { dashboardAPI } from '../api';
+import { requestsAPI } from '../lib/supabaseApi';
 import StatusBadge from '../components/StatusBadge';
+import type { RequestWithRelations } from '../types/database';
 import { Loader2, Eye, Calendar, Package } from 'lucide-react';
 
 const History = () => {
-  const [requests, setRequests] = useState([]);
+  const [requests, setRequests] = useState<RequestWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -15,10 +16,10 @@ const History = () => {
 
   const fetchHistory = async () => {
     try {
-      const response = await dashboardAPI.getMyRequests();
-      setRequests(response.data);
-    } catch (err) {
-      setError('Failed to load request history');
+      const data = await requestsAPI.getMyRequests();
+      setRequests(data);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load request history');
       console.error(err);
     } finally {
       setLoading(false);
@@ -67,7 +68,7 @@ const History = () => {
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-lg font-semibold text-gray-800">{request.itemName}</h3>
+                    <h3 className="text-lg font-semibold text-gray-800">{request.item_name}</h3>
                     <StatusBadge status={request.status} size="sm" />
                   </div>
                   
@@ -82,13 +83,13 @@ const History = () => {
                     </div>
                     <div>
                       <p className="text-sm text-gray-500">Total Price</p>
-                      <p className="font-medium text-gray-800">₱{request.totalPrice.toLocaleString()}</p>
+                      <p className="font-medium text-gray-800">₱{request.total_price?.toLocaleString()}</p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-500">Date</p>
                       <p className="font-medium text-gray-800 flex items-center gap-1">
                         <Calendar className="w-4 h-4" />
-                        {new Date(request.createdAt).toLocaleDateString()}
+                        {new Date(request.created_at).toLocaleDateString()}
                       </p>
                     </div>
                   </div>
@@ -97,10 +98,10 @@ const History = () => {
                     <p className="text-sm text-gray-600 mt-3 line-clamp-2">{request.description}</p>
                   )}
 
-                  {request.status === 'Rejected' && request.rejectionReason && (
+                  {request.status === 'Rejected' && request.rejection_reason && (
                     <div className="mt-3 p-3 bg-red-50 rounded-lg">
                       <p className="text-sm text-red-600">
-                        <span className="font-medium">Rejection Reason:</span> {request.rejectionReason}
+                        <span className="font-medium">Rejection Reason:</span> {request.rejection_reason}
                       </p>
                     </div>
                   )}
@@ -116,24 +117,24 @@ const History = () => {
 
               {/* Timeline */}
               <div className="mt-4 pt-4 border-t border-gray-100">
-                <div className="flex items-center gap-2 text-xs text-gray-500">
-                  <span>Created: {new Date(request.createdAt).toLocaleString()}</span>
-                  {request.approvedAt && (
+                <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
+                  <span>Created: {new Date(request.created_at).toLocaleString()}</span>
+                  {request.approved_at && (
                     <>
                       <span>•</span>
-                      <span>Reviewed: {new Date(request.approvedAt).toLocaleString()}</span>
+                      <span>Reviewed: {new Date(request.approved_at).toLocaleString()}</span>
                     </>
                   )}
-                  {request.orderedAt && (
+                  {request.ordered_at && (
                     <>
                       <span>•</span>
-                      <span>Ordered: {new Date(request.orderedAt).toLocaleString()}</span>
+                      <span>Ordered: {new Date(request.ordered_at).toLocaleString()}</span>
                     </>
                   )}
-                  {request.completedAt && (
+                  {request.completed_at && (
                     <>
                       <span>•</span>
-                      <span>Completed: {new Date(request.completedAt).toLocaleString()}</span>
+                      <span>Completed: {new Date(request.completed_at).toLocaleString()}</span>
                     </>
                   )}
                 </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { vendorsAPI } from '../api';
+import { vendorsAPI } from '../lib/supabaseApi';
+import type { Vendor } from '../types/database';
 import {
   Loader2,
   Plus,
@@ -17,19 +18,20 @@ import {
 } from 'lucide-react';
 
 const Vendors = () => {
-  const [vendors, setVendors] = useState([]);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
-  const [editingVendor, setEditingVendor] = useState(null);
+  const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
   const [formData, setFormData] = useState({
     name: '',
-    contactPerson: '',
-    contactNumber: '',
+    contact_person: '',
+    contact_number: '',
     email: '',
-    address: ''
+    address: '',
+    category: ''
   });
 
   useEffect(() => {
@@ -38,16 +40,16 @@ const Vendors = () => {
 
   const fetchVendors = async () => {
     try {
-      const response = await vendorsAPI.getAll();
-      setVendors(response.data);
-    } catch (err) {
-      setError('Failed to load vendors');
+      const data = await vendorsAPI.getAll();
+      setVendors(data);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load vendors');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     
@@ -62,43 +64,44 @@ const Vendors = () => {
       setShowModal(false);
       resetForm();
       fetchVendors();
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to save vendor');
+    } catch (err: any) {
+      setError(err.message || 'Failed to save vendor');
     }
   };
 
-  const handleEdit = (vendor) => {
+  const handleEdit = (vendor: Vendor) => {
     setEditingVendor(vendor);
     setFormData({
       name: vendor.name,
-      contactPerson: vendor.contactPerson || '',
-      contactNumber: vendor.contactNumber || '',
+      contact_person: vendor.contact_person || '',
+      contact_number: vendor.contact_number || '',
       email: vendor.email || '',
-      address: vendor.address || ''
+      address: vendor.address || '',
+      category: vendor.category || ''
     });
     setShowModal(true);
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this vendor?')) return;
     
     try {
       await vendorsAPI.delete(id);
       setSuccess('Vendor deleted successfully');
       fetchVendors();
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to delete vendor');
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete vendor');
     }
   };
 
   const resetForm = () => {
-    setFormData({ name: '', contactPerson: '', contactNumber: '', email: '', address: '' });
+    setFormData({ name: '', contact_person: '', contact_number: '', email: '', address: '', category: '' });
     setEditingVendor(null);
   };
 
   const filteredVendors = vendors.filter(vendor =>
     vendor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    vendor.contactPerson?.toLowerCase().includes(searchTerm.toLowerCase())
+    vendor.contact_person?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (loading) {
@@ -182,16 +185,16 @@ const Vendors = () => {
             <h3 className="text-lg font-semibold text-gray-800 mb-3">{vendor.name}</h3>
 
             <div className="space-y-2 text-sm">
-              {vendor.contactPerson && (
+              {vendor.contact_person && (
                 <div className="flex items-center gap-2 text-gray-600">
                   <User className="w-4 h-4" />
-                  <span>{vendor.contactPerson}</span>
+                  <span>{vendor.contact_person}</span>
                 </div>
               )}
-              {vendor.contactNumber && (
+              {vendor.contact_number && (
                 <div className="flex items-center gap-2 text-gray-600">
                   <Phone className="w-4 h-4" />
-                  <span>{vendor.contactNumber}</span>
+                  <span>{vendor.contact_number}</span>
                 </div>
               )}
               {vendor.email && (
@@ -256,8 +259,8 @@ const Vendors = () => {
                 </label>
                 <input
                   type="text"
-                  value={formData.contactPerson}
-                  onChange={(e) => setFormData(prev => ({ ...prev, contactPerson: e.target.value }))}
+                  value={formData.contact_person}
+                  onChange={(e) => setFormData(prev => ({ ...prev, contact_person: e.target.value }))}
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
@@ -269,8 +272,8 @@ const Vendors = () => {
                 </label>
                 <input
                   type="text"
-                  value={formData.contactNumber}
-                  onChange={(e) => setFormData(prev => ({ ...prev, contactNumber: e.target.value }))}
+                  value={formData.contact_number}
+                  onChange={(e) => setFormData(prev => ({ ...prev, contact_number: e.target.value }))}
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
                 />
               </div>

@@ -5,10 +5,17 @@ import {
   XCircle, 
   ShoppingCart, 
   Package, 
-  CheckSquare 
+  CheckSquare,
+  LucideIcon
 } from 'lucide-react';
 
-const statusConfig = {
+interface StatusConfig {
+  color: string;
+  icon: LucideIcon;
+  label: string;
+}
+
+const statusConfig: Record<string, StatusConfig> = {
   Draft: {
     color: 'bg-gray-100 text-gray-700 border-gray-300',
     icon: FileText,
@@ -46,7 +53,13 @@ const statusConfig = {
   }
 };
 
-export const StatusBadge = ({ status, showIcon = true, size = 'md' }) => {
+interface StatusBadgeProps {
+  status: string;
+  showIcon?: boolean;
+  size?: 'sm' | 'md' | 'lg';
+}
+
+export const StatusBadge = ({ status, showIcon = true, size = 'md' }: StatusBadgeProps) => {
   const config = statusConfig[status] || statusConfig.Draft;
   const Icon = config.icon;
   
@@ -66,7 +79,7 @@ export const StatusBadge = ({ status, showIcon = true, size = 'md' }) => {
   );
 };
 
-export const getStatusColor = (status) => {
+export const getStatusColor = (status: string) => {
   return statusConfig[status]?.color || statusConfig.Draft.color;
 };
 

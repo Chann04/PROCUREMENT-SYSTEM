@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 
 const Sidebar = () => {
-  const { user, logout, canApprove, isAdmin } = useAuth();
+  const { profile, signOut, canApprove, isAdmin } = useAuth();
 
   const navItems = [
     {
@@ -75,8 +75,16 @@ const Sidebar = () => {
   ];
 
   const filteredNavItems = navItems.filter(item => 
-    item.roles.includes(user?.role)
+    profile?.role && item.roles.includes(profile.role)
   );
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 bg-slate-900 text-white flex flex-col">
@@ -121,16 +129,16 @@ const Sidebar = () => {
         <div className="flex items-center gap-3 px-3 py-2 mb-3">
           <div className="w-10 h-10 bg-slate-700 rounded-full flex items-center justify-center">
             <span className="text-sm font-bold">
-              {user?.name?.charAt(0).toUpperCase()}
+              {profile?.full_name?.charAt(0).toUpperCase() || '?'}
             </span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-medium text-sm truncate">{user?.name}</p>
-            <p className="text-xs text-slate-400">{user?.role}</p>
+            <p className="font-medium text-sm truncate">{profile?.full_name}</p>
+            <p className="text-xs text-slate-400">{profile?.role}</p>
           </div>
         </div>
         <button
-          onClick={logout}
+          onClick={handleSignOut}
           className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-slate-300 hover:bg-red-500/10 hover:text-red-400 transition-colors"
         >
           <LogOut className="w-5 h-5" />

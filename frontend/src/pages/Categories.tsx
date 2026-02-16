@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { categoriesAPI } from '../api';
+import { categoriesAPI } from '../lib/supabaseApi';
+import type { Category } from '../types/database';
 import {
   Loader2,
   Plus,
@@ -13,13 +14,13 @@ import {
 } from 'lucide-react';
 
 const Categories = () => {
-  const [categories, setCategories] = useState([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
-  const [editingCategory, setEditingCategory] = useState(null);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [name, setName] = useState('');
 
   useEffect(() => {
@@ -28,16 +29,16 @@ const Categories = () => {
 
   const fetchCategories = async () => {
     try {
-      const response = await categoriesAPI.getAll();
-      setCategories(response.data);
-    } catch (err) {
-      setError('Failed to load categories');
+      const data = await categoriesAPI.getAll();
+      setCategories(data);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load categories');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     
@@ -53,26 +54,26 @@ const Categories = () => {
       setName('');
       setEditingCategory(null);
       fetchCategories();
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to save category');
+    } catch (err: any) {
+      setError(err.message || 'Failed to save category');
     }
   };
 
-  const handleEdit = (category) => {
+  const handleEdit = (category: Category) => {
     setEditingCategory(category);
     setName(category.name);
     setShowModal(true);
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this category?')) return;
     
     try {
       await categoriesAPI.delete(id);
       setSuccess('Category deleted successfully');
       fetchCategories();
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to delete category');
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete category');
     }
   };
 
@@ -173,7 +174,7 @@ const Categories = () => {
             </div>
             <h3 className="text-lg font-semibold text-gray-800 mt-4">{category.name}</h3>
             <p className="text-sm text-gray-500 mt-1">
-              Created {new Date(category.createdAt).toLocaleDateString()}
+              Created {new Date(category.created_at).toLocaleDateString()}
             </p>
           </div>
         ))}

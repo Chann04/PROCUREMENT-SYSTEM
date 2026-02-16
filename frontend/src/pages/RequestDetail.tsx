@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { requestsAPI } from '../api';
+import { requestsAPI } from '../lib/supabaseApi';
 import { useAuth } from '../context/AuthContext';
 import StatusBadge from '../components/StatusBadge';
+import type { RequestWithRelations } from '../types/database';
 import {
   ArrowLeft,
   Package,
@@ -22,10 +23,10 @@ import {
 } from 'lucide-react';
 
 const RequestDetail = () => {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user, canApprove } = useAuth();
-  const [request, setRequest] = useState(null);
+  const { canApprove } = useAuth();
+  const [request, setRequest] = useState<RequestWithRelations | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
@@ -33,46 +34,46 @@ const RequestDetail = () => {
   const [showRejectModal, setShowRejectModal] = useState(false);
 
   useEffect(() => {
-    fetchRequest();
+    if (id) fetchRequest();
   }, [id]);
 
   const fetchRequest = async () => {
     try {
-      const response = await requestsAPI.getById(id);
-      setRequest(response.data);
-    } catch (err) {
-      setError('Failed to load request details');
+      const data = await requestsAPI.getById(id!);
+      setRequest(data);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load request details');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAction = async (action) => {
+  const handleAction = async (action: string) => {
     setActionLoading(true);
     setError('');
     
     try {
       switch (action) {
         case 'approve':
-          await requestsAPI.approve(id);
+          await requestsAPI.approve(id!);
           break;
         case 'reject':
-          await requestsAPI.reject(id, rejectReason);
+          await requestsAPI.reject(id!, rejectReason);
           setShowRejectModal(false);
           break;
         case 'order':
-          await requestsAPI.order(id);
+          await requestsAPI.markOrdered(id!);
           break;
         case 'receive':
-          await requestsAPI.receive(id);
+          await requestsAPI.markReceived(id!);
           break;
         case 'complete':
-          await requestsAPI.complete(id);
+          await requestsAPI.markCompleted(id!);
           break;
       }
       fetchRequest();
-    } catch (err) {
-      setError(err.response?.data?.error || `Failed to ${action} request`);
+    } catch (err: any) {
+      setError(err.message || `Failed to ${action} request`);
     } finally {
       setActionLoading(false);
     }
@@ -108,8 +109,8 @@ const RequestDetail = () => {
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold text-gray-800">{request.itemName}</h1>
-          <p className="text-gray-500">Request #{request.id}</p>
+          <h1 className="text-2xl font-bold text-gray-800">{request.item_name}</h1>
+          <p className="text-gray-500">Request #{request.id.slice(0, 8)}</p>
         </div>
         <StatusBadge status={request.status} size="lg" />
       </div>
@@ -121,10 +122,10 @@ const RequestDetail = () => {
       )}
 
       {/* Rejection Reason */}
-      {request.status === 'Rejected' && request.rejectionReason && (
+      {request.status === 'Rejected' && request.rejection_reason && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <p className="text-sm font-medium text-red-800">Rejection Reason:</p>
-          <p className="text-red-700 mt-1">{request.rejectionReason}</p>
+          <p className="text-red-700 mt-1">{request.rejection_reason}</p>
         </div>
       )}
 
@@ -138,7 +139,7 @@ const RequestDetail = () => {
             </div>
             <div>
               <p className="text-sm text-gray-500">Item Name</p>
-              <p className="font-medium text-gray-800">{request.itemName}</p>
+              <p className="font-medium text-gray-800">{request.item_name}</p>
             </div>
           </div>
 
@@ -168,7 +169,7 @@ const RequestDetail = () => {
             </div>
             <div>
               <p className="text-sm text-gray-500">Requester</p>
-              <p className="font-medium text-gray-800">{request.requester?.name}</p>
+              <p className="font-medium text-gray-800">{request.requester?.full_name}</p>
               <p className="text-sm text-gray-500">{request.requester?.email}</p>
             </div>
           </div>
@@ -189,7 +190,7 @@ const RequestDetail = () => {
             </div>
             <div>
               <p className="text-sm text-gray-500">Unit Price</p>
-              <p className="font-medium text-gray-800">₱{request.unitPrice.toLocaleString()}</p>
+              <p className="font-medium text-gray-800">₱{request.unit_price.toLocaleString()}</p>
             </div>
           </div>
 
@@ -200,7 +201,7 @@ const RequestDetail = () => {
             <div>
               <p className="text-sm text-gray-500">Created</p>
               <p className="font-medium text-gray-800">
-                {new Date(request.createdAt).toLocaleDateString('en-US', {
+                {new Date(request.created_at).toLocaleDateString('en-US', {
                   year: 'numeric',
                   month: 'long',
                   day: 'numeric'
@@ -215,7 +216,7 @@ const RequestDetail = () => {
             </div>
             <div>
               <p className="text-sm text-gray-500">Total Price</p>
-              <p className="text-2xl font-bold text-gray-800">₱{request.totalPrice.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-gray-800">₱{request.total_price?.toLocaleString()}</p>
             </div>
           </div>
         </div>

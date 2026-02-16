@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { requestsAPI } from '../api';
+import { requestsAPI } from '../lib/supabaseApi';
 import { useAuth } from '../context/AuthContext';
 import StatusBadge from '../components/StatusBadge';
+import type { RequestWithRelations, RequestStatus } from '../types/database';
 import {
   Plus,
   Search,
@@ -18,11 +19,11 @@ import {
 const Requests = () => {
   const { canApprove } = useAuth();
   const location = useLocation();
-  const [requests, setRequests] = useState([]);
+  const [requests, setRequests] = useState<RequestWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState(location.state?.message || '');
-  const [filterStatus, setFilterStatus] = useState('');
+  const [success, setSuccess] = useState((location.state as any)?.message || '');
+  const [filterStatus, setFilterStatus] = useState<RequestStatus | ''>('');
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
@@ -34,49 +35,44 @@ const Requests = () => {
   const fetchRequests = async () => {
     try {
       setLoading(true);
-      const params = filterStatus ? { status: filterStatus } : {};
-      const response = await requestsAPI.getAll(params);
-      setRequests(response.data);
-    } catch (err) {
-      setError('Failed to load requests');
+      const data = await requestsAPI.getMyRequests();
+      setRequests(filterStatus ? data.filter(r => r.status === filterStatus) : data);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load requests');
       console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = async (id) => {
+  const handleSubmit = async (id: string) => {
     try {
       await requestsAPI.submit(id);
       setSuccess('Request submitted for approval');
       fetchRequests();
-    } catch (err) {
-      if (err.response?.data?.budgetExceeded) {
-        setError(err.response.data.message);
-      } else {
-        setError(err.response?.data?.error || 'Failed to submit request');
-      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to submit request');
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this request?')) return;
     
     try {
       await requestsAPI.delete(id);
       setSuccess('Request deleted successfully');
       fetchRequests();
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to delete request');
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete request');
     }
   };
 
   const filteredRequests = requests.filter(req =>
-    req.itemName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    req.category?.name.toLowerCase().includes(searchTerm.toLowerCase())
+    req.item_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    req.category?.name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const statuses = ['Draft', 'Pending', 'Approved', 'Rejected', 'Ordered', 'Received', 'Completed'];
+  const statuses: (RequestStatus | '')[] = ['', 'Draft', 'Pending', 'Approved', 'Rejected', 'Ordered', 'Received', 'Completed'];
 
   return (
     <div className="space-y-6">
@@ -129,11 +125,11 @@ const Requests = () => {
             <Filter className="w-5 h-5 text-gray-400" />
             <select
               value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
+              onChange={(e) => setFilterStatus(e.target.value as RequestStatus | '')}
               className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             >
               <option value="">All Statuses</option>
-              {statuses.map(status => (
+              {statuses.filter(s => s).map(status => (
                 <option key={status} value={status}>{status}</option>
               ))}
             </select>
@@ -173,7 +169,7 @@ const Requests = () => {
                   <tr key={request.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <div>
-                        <p className="font-medium text-gray-800">{request.itemName}</p>
+                        <p className="font-medium text-gray-800">{request.item_name}</p>
                         {request.vendor && (
                           <p className="text-sm text-gray-500">{request.vendor.name}</p>
                         )}
@@ -181,12 +177,12 @@ const Requests = () => {
                     </td>
                     <td className="px-6 py-4 text-gray-600">{request.category?.name}</td>
                     <td className="px-6 py-4 text-gray-600">{request.quantity}</td>
-                    <td className="px-6 py-4 font-medium text-gray-800">₱{request.totalPrice.toLocaleString()}</td>
+                    <td className="px-6 py-4 font-medium text-gray-800">₱{request.total_price?.toLocaleString()}</td>
                     <td className="px-6 py-4">
                       <StatusBadge status={request.status} size="sm" />
                     </td>
                     <td className="px-6 py-4 text-gray-500 text-sm">
-                      {new Date(request.createdAt).toLocaleDateString()}
+                      {new Date(request.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-end gap-2">

@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
-import { budgetAPI } from '../api';
+import { budgetsAPI } from '../lib/supabaseApi';
 import { useAuth } from '../context/AuthContext';
+import type { Budget as BudgetType } from '../types/database';
 import {
   Loader2,
   Wallet,
   TrendingUp,
   TrendingDown,
   Calendar,
-  PieChart,
   Pencil,
   CheckCircle,
   AlertCircle,
@@ -16,16 +16,15 @@ import {
 
 const Budget = () => {
   const { isAdmin } = useAuth();
-  const [budgets, setBudgets] = useState([]);
-  const [currentBudget, setCurrentBudget] = useState(null);
-  const [report, setReport] = useState(null);
+  const [budgets, setBudgets] = useState<BudgetType[]>([]);
+  const [currentBudget, setCurrentBudget] = useState<BudgetType | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({
-    academicYear: '',
-    totalAmount: ''
+    academic_year: '',
+    total_amount: ''
   });
 
   useEffect(() => {
@@ -34,53 +33,46 @@ const Budget = () => {
 
   const fetchData = async () => {
     try {
-      const [budgetsRes, currentRes] = await Promise.all([
-        budgetAPI.getAll(),
-        budgetAPI.getCurrent()
+      const [budgetsData, currentData] = await Promise.all([
+        budgetsAPI.getAll(),
+        budgetsAPI.getCurrent()
       ]);
-      setBudgets(budgetsRes.data);
-      setCurrentBudget(currentRes.data);
-
-      // Fetch report for current budget
-      if (currentRes.data) {
-        try {
-          const reportRes = await budgetAPI.getReport(currentRes.data.academicYear);
-          setReport(reportRes.data);
-        } catch (err) {
-          // Report might not be available
-        }
-      }
-    } catch (err) {
-      setError('Failed to load budget data');
+      setBudgets(budgetsData);
+      setCurrentBudget(currentData);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load budget data');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     
     try {
-      await budgetAPI.create(formData);
+      await budgetsAPI.upsert({
+        academic_year: formData.academic_year,
+        total_amount: parseFloat(formData.total_amount)
+      });
       setSuccess('Budget saved successfully');
       setShowModal(false);
-      setFormData({ academicYear: '', totalAmount: '' });
+      setFormData({ academic_year: '', total_amount: '' });
       fetchData();
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to save budget');
+    } catch (err: any) {
+      setError(err.message || 'Failed to save budget');
     }
   };
 
-  const handleEdit = (budget) => {
+  const handleEdit = (budget: BudgetType) => {
     setFormData({
-      academicYear: budget.academicYear,
-      totalAmount: budget.totalAmount.toString()
+      academic_year: budget.academic_year,
+      total_amount: budget.total_amount.toString()
     });
     setShowModal(true);
   };
 
-  const getUtilizationColor = (percentage) => {
+  const getUtilizationColor = (percentage: number) => {
     if (percentage >= 90) return 'text-red-600';
     if (percentage >= 75) return 'text-orange-600';
     if (percentage >= 50) return 'text-yellow-600';
@@ -96,8 +88,8 @@ const Budget = () => {
   }
 
   const utilizationPercentage = currentBudget 
-    ? ((currentBudget.spentAmount / currentBudget.totalAmount) * 100).toFixed(1)
-    : 0;
+    ? ((currentBudget.spent_amount / currentBudget.total_amount) * 100).toFixed(1)
+    : '0';
 
   return (
     <div className="space-y-6">
@@ -108,7 +100,7 @@ const Budget = () => {
         </div>
         {isAdmin() && (
           <button
-            onClick={() => { setFormData({ academicYear: '', totalAmount: '' }); setShowModal(true); }}
+            onClick={() => { setFormData({ academic_year: '', total_amount: '' }); setShowModal(true); }}
             className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium flex items-center gap-2"
           >
             <Wallet className="w-5 h-5" />
@@ -143,7 +135,7 @@ const Budget = () => {
               </div>
               <div>
                 <h2 className="text-lg font-semibold text-gray-800">Current Academic Year</h2>
-                <p className="text-gray-500">{currentBudget.academicYear}</p>
+                <p className="text-gray-500">{currentBudget.academic_year}</p>
               </div>
             </div>
             {isAdmin() && (
@@ -163,7 +155,7 @@ const Budget = () => {
                 <span className="text-sm text-green-600 font-medium">Total Budget</span>
               </div>
               <p className="text-2xl font-bold text-green-700">
-                ₱{currentBudget.totalAmount.toLocaleString()}
+                ₱{currentBudget.total_amount.toLocaleString()}
               </p>
             </div>
 
@@ -173,7 +165,7 @@ const Budget = () => {
                 <span className="text-sm text-orange-600 font-medium">Spent Amount</span>
               </div>
               <p className="text-2xl font-bold text-orange-700">
-                ₱{currentBudget.spentAmount.toLocaleString()}
+                ₱{currentBudget.spent_amount.toLocaleString()}
               </p>
             </div>
 
@@ -183,7 +175,7 @@ const Budget = () => {
                 <span className="text-sm text-blue-600 font-medium">Remaining</span>
               </div>
               <p className="text-2xl font-bold text-blue-700">
-                ₱{currentBudget.remainingAmount.toLocaleString()}
+                ₱{currentBudget.remaining_amount.toLocaleString()}
               </p>
             </div>
           </div>
@@ -192,58 +184,20 @@ const Budget = () => {
           <div className="mt-6">
             <div className="flex items-center justify-between text-sm mb-2">
               <span className="text-gray-500">Budget Utilization</span>
-              <span className={`font-bold ${getUtilizationColor(utilizationPercentage)}`}>
+              <span className={`font-bold ${getUtilizationColor(parseFloat(utilizationPercentage))}`}>
                 {utilizationPercentage}%
               </span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-3">
               <div
                 className={`h-3 rounded-full transition-all ${
-                  utilizationPercentage >= 90 ? 'bg-red-500' :
-                  utilizationPercentage >= 75 ? 'bg-orange-500' :
-                  utilizationPercentage >= 50 ? 'bg-yellow-500' : 'bg-green-500'
+                  parseFloat(utilizationPercentage) >= 90 ? 'bg-red-500' :
+                  parseFloat(utilizationPercentage) >= 75 ? 'bg-orange-500' :
+                  parseFloat(utilizationPercentage) >= 50 ? 'bg-yellow-500' : 'bg-green-500'
                 }`}
-                style={{ width: `${Math.min(utilizationPercentage, 100)}%` }}
+                style={{ width: `${Math.min(parseFloat(utilizationPercentage), 100)}%` }}
               />
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Category Spending */}
-      {report?.categorySpending?.length > 0 && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-              <PieChart className="w-5 h-5 text-purple-600" />
-            </div>
-            <h2 className="text-lg font-semibold text-gray-800">Spending by Category</h2>
-          </div>
-
-          <div className="space-y-4">
-            {report.categorySpending.map((item, index) => {
-              const percentage = currentBudget 
-                ? ((item.amount / currentBudget.spentAmount) * 100).toFixed(1)
-                : 0;
-              
-              return (
-                <div key={index}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-gray-700 font-medium">{item.category}</span>
-                    <div className="text-right">
-                      <span className="text-gray-800 font-bold">₱{item.amount.toLocaleString()}</span>
-                      <span className="text-gray-500 text-sm ml-2">({percentage}%)</span>
-                    </div>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className="h-2 rounded-full bg-indigo-500"
-                      style={{ width: `${percentage}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
           </div>
         </div>
       )}
@@ -267,25 +221,25 @@ const Budget = () => {
             </thead>
             <tbody className="divide-y divide-gray-200">
               {budgets.map((budget) => {
-                const util = ((budget.spentAmount / budget.totalAmount) * 100).toFixed(1);
+                const util = ((budget.spent_amount / budget.total_amount) * 100).toFixed(1);
                 return (
                   <tr key={budget.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium text-gray-800">{budget.academicYear}</td>
-                    <td className="px-4 py-3 text-gray-600">₱{budget.totalAmount.toLocaleString()}</td>
-                    <td className="px-4 py-3 text-gray-600">₱{budget.spentAmount.toLocaleString()}</td>
-                    <td className="px-4 py-3 text-gray-600">₱{budget.remainingAmount.toLocaleString()}</td>
+                    <td className="px-4 py-3 font-medium text-gray-800">{budget.academic_year}</td>
+                    <td className="px-4 py-3 text-gray-600">₱{budget.total_amount.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-gray-600">₱{budget.spent_amount.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-gray-600">₱{budget.remaining_amount.toLocaleString()}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <div className="w-20 bg-gray-200 rounded-full h-2">
                           <div
                             className={`h-2 rounded-full ${
-                              util >= 90 ? 'bg-red-500' :
-                              util >= 75 ? 'bg-orange-500' : 'bg-green-500'
+                              parseFloat(util) >= 90 ? 'bg-red-500' :
+                              parseFloat(util) >= 75 ? 'bg-orange-500' : 'bg-green-500'
                             }`}
-                            style={{ width: `${Math.min(util, 100)}%` }}
+                            style={{ width: `${Math.min(parseFloat(util), 100)}%` }}
                           />
                         </div>
-                        <span className={`text-sm font-medium ${getUtilizationColor(util)}`}>
+                        <span className={`text-sm font-medium ${getUtilizationColor(parseFloat(util))}`}>
                           {util}%
                         </span>
                       </div>
@@ -314,7 +268,7 @@ const Budget = () => {
           <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-semibold text-gray-800">
-                {formData.academicYear ? 'Edit Budget' : 'Set New Budget'}
+                {formData.academic_year ? 'Edit Budget' : 'Set New Budget'}
               </h3>
               <button
                 onClick={() => setShowModal(false)}
@@ -331,8 +285,8 @@ const Budget = () => {
                 </label>
                 <input
                   type="text"
-                  value={formData.academicYear}
-                  onChange={(e) => setFormData(prev => ({ ...prev, academicYear: e.target.value }))}
+                  value={formData.academic_year}
+                  onChange={(e) => setFormData(prev => ({ ...prev, academic_year: e.target.value }))}
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
                   placeholder="e.g., 2025-2026"
                   required
@@ -345,8 +299,8 @@ const Budget = () => {
                 </label>
                 <input
                   type="number"
-                  value={formData.totalAmount}
-                  onChange={(e) => setFormData(prev => ({ ...prev, totalAmount: e.target.value }))}
+                  value={formData.total_amount}
+                  onChange={(e) => setFormData(prev => ({ ...prev, total_amount: e.target.value }))}
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
                   placeholder="0.00"
                   min="0"
