@@ -4,6 +4,11 @@ import type { Database } from '../types/database';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+// Debug logging (safe - only shows partial key)
+console.log('🔧 Supabase Config:');
+console.log('   URL:', supabaseUrl);
+console.log('   Key:', supabaseAnonKey ? `${supabaseAnonKey.substring(0, 20)}...` : 'NOT SET');
+
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables. Please check your .env file.');
 }
@@ -15,6 +20,27 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: true
   }
 });
+
+// Network connectivity test function
+export const testSupabaseReachability = async (): Promise<{reachable: boolean; error?: string}> => {
+  try {
+    console.log('🔍 Testing Supabase reachability...');
+    const response = await fetch(`${supabaseUrl}/rest/v1/`, {
+      method: 'HEAD',
+      headers: {
+        'apikey': supabaseAnonKey,
+      }
+    });
+    console.log('✅ Supabase is reachable! Status:', response.status);
+    return { reachable: true };
+  } catch (error: any) {
+    console.error('❌ Supabase unreachable:', error.message);
+    return { reachable: false, error: error.message };
+  }
+};
+
+// Run connectivity test on load
+testSupabaseReachability();
 
 // Helper function to get current user's profile
 export const getCurrentProfile = async () => {

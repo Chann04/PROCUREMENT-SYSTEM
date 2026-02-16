@@ -105,27 +105,75 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }, []);
 
   const signUp = async (email: string, password: string, fullName: string, role: UserRole = 'Faculty') => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
-          role: role
+    console.log('📝 Attempting signup for:', email);
+    
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+            role: role
+          }
         }
-      }
-    });
+      });
 
-    if (error) throw error;
+      if (error) {
+        console.error('❌ Signup error:', error);
+        console.dir(error, { depth: null });
+        throw error;
+      }
+
+      console.log('✅ Signup successful:', data);
+    } catch (err: any) {
+      console.error('❌ Signup exception:', err);
+      
+      // Handle "Failed to fetch" specifically
+      if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
+        throw new Error(
+          'Unable to connect to authentication server. This usually means:\n' +
+          '1. Your Supabase project may be paused (check your dashboard)\n' +
+          '2. Check your internet connection\n' +
+          '3. The Supabase URL in .env might be incorrect'
+        );
+      }
+      
+      throw err;
+    }
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
+    console.log('🔐 Attempting signin for:', email);
+    
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
 
-    if (error) throw error;
+      if (error) {
+        console.error('❌ Signin error:', error);
+        console.dir(error, { depth: null });
+        throw error;
+      }
+
+      console.log('✅ Signin successful:', data.user?.email);
+    } catch (err: any) {
+      console.error('❌ Signin exception:', err);
+      
+      // Handle "Failed to fetch" specifically
+      if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
+        throw new Error(
+          'Unable to connect to authentication server. This usually means:\n' +
+          '1. Your Supabase project may be paused (check your dashboard)\n' +
+          '2. Check your internet connection\n' +
+          '3. The Supabase URL in .env might be incorrect'
+        );
+      }
+      
+      throw err;
+    }
   };
 
   const signOut = async () => {
