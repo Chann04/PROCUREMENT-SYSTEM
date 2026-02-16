@@ -19,6 +19,12 @@ export type RequestStatus =
   | 'Received' 
   | 'Completed';
 
+export type ActivityAction = 
+  | 'created'
+  | 'status_changed'
+  | 'delegated'
+  | 'comment_added';
+
 export interface Database {
   public: {
     Tables: {
@@ -144,6 +150,10 @@ export interface Database {
           ordered_at: string | null;
           received_at: string | null;
           completed_at: string | null;
+          delegated_to: string | null;
+          delegated_by: string | null;
+          delegated_at: string | null;
+          quotation_url: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -163,6 +173,10 @@ export interface Database {
           ordered_at?: string | null;
           received_at?: string | null;
           completed_at?: string | null;
+          delegated_to?: string | null;
+          delegated_by?: string | null;
+          delegated_at?: string | null;
+          quotation_url?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -181,7 +195,51 @@ export interface Database {
           ordered_at?: string | null;
           received_at?: string | null;
           completed_at?: string | null;
+          delegated_to?: string | null;
+          delegated_by?: string | null;
+          delegated_at?: string | null;
+          quotation_url?: string | null;
           updated_at?: string;
+        };
+      };
+      request_comments: {
+        Row: {
+          id: string;
+          request_id: string;
+          author_id: string;
+          content: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          request_id: string;
+          author_id: string;
+          content: string;
+          created_at?: string;
+        };
+        Update: {
+          content?: string;
+        };
+      };
+      request_activity: {
+        Row: {
+          id: string;
+          request_id: string;
+          actor_id: string | null;
+          action: ActivityAction;
+          details: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          request_id: string;
+          actor_id?: string | null;
+          action: ActivityAction;
+          details?: Json | null;
+          created_at?: string;
+        };
+        Update: {
+          details?: Json | null;
         };
       };
     };
@@ -200,10 +258,21 @@ export type Category = Database['public']['Tables']['categories']['Row'];
 export type Vendor = Database['public']['Tables']['vendors']['Row'];
 export type Budget = Database['public']['Tables']['budgets']['Row'];
 export type Request = Database['public']['Tables']['requests']['Row'];
+export type RequestComment = Database['public']['Tables']['request_comments']['Row'];
+export type RequestActivity = Database['public']['Tables']['request_activity']['Row'];
 
 // Extended types with relations
 export type RequestWithRelations = Request & {
   requester?: Profile;
   category?: Category;
   vendor?: Vendor;
+  delegated_to_profile?: Profile;
+};
+
+export type CommentWithAuthor = RequestComment & {
+  author?: Profile;
+};
+
+export type ActivityWithActor = RequestActivity & {
+  actor?: Profile;
 };

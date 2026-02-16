@@ -6,7 +6,9 @@ import type {
   Budget, 
   Request, 
   RequestWithRelations,
-  RequestStatus 
+  RequestStatus,
+  CommentWithAuthor,
+  ActivityWithActor
 } from '../types/database';
 
 // =====================================================
@@ -361,7 +363,8 @@ export const requestsAPI = {
         *,
         requester:profiles!requester_id(*),
         category:categories(*),
-        vendor:vendors(*)
+        vendor:vendors(*),
+        delegated_to_profile:profiles!delegated_to(*)
       `)
       .eq('id', id)
       .single();
@@ -460,6 +463,75 @@ export const requestsAPI = {
       status: 'Completed',
       completed_at: new Date().toISOString()
     });
+  },
+
+  // Delegation
+  delegate: async (id: string, delegateToId: string): Promise<Request> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    return requestsAPI.update(id, { 
+      delegated_to: delegateToId,
+      delegated_by: user?.id,
+      delegated_at: new Date().toISOString()
+    });
+  }
+};
+
+// =====================================================
+// COMMENTS API
+// =====================================================
+export const commentsAPI = {
+  getByRequestId: async (requestId: string): Promise<CommentWithAuthor[]> => {
+    const { data, error } = await supabase
+      .from('request_comments')
+      .select(`
+        *,
+        author:profiles!author_id(*)
+      `)
+      .eq('request_id', requestId)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  create: async (requestId: string, content: string): Promise<CommentWithAuthor> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { data, error } = await supabase
+      .from('request_comments')
+      .insert({
+        request_id: requestId,
+        author_id: user.id,
+        content
+      })
+      .select(`
+        *,
+        author:profiles!author_id(*)
+      `)
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+};
+
+// =====================================================
+// ACTIVITY API (Audit Trail)
+// =====================================================
+export const activityAPI = {
+  getByRequestId: async (requestId: string): Promise<ActivityWithActor[]> => {
+    const { data, error } = await supabase
+      .from('request_activity')
+      .select(`
+        *,
+        actor:profiles!actor_id(*)
+      `)
+      .eq('request_id', requestId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
   }
 };
 
